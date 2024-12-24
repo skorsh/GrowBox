@@ -1,3 +1,4 @@
+<!-- GrowBox Controller v.2.0 -->
 <!DOCTYPE html>
 <html lang="uk">
 <head>
@@ -11,7 +12,48 @@
             box-sizing: border-box;
             font-family: Arial, sans-serif;
         }
+		
+		.fan-state {
+    margin-top: 5px;
+    padding: 3px 8px;
+    border-radius: 4px;
+    font-size: 0.9em;
+}
+
+.fan-active {
+    background-color: #d4edda;
+    color: #155724;
+}
+
+.fan-inactive {
+    background-color: #f8d7da;
+    color: #721c24;
+}
+		
+		
+		.active-power {
+        font-weight: bold;
+        color: green; /* Або інший колір, що вам подобається */
+		}
         
+		    #power-status span { /* Стилі для обох span */
+        padding: 5px 10px;
+        border-radius: 5px;
+        transition: all 0.3s ease; /* Плавний перехід */
+    }
+
+    #power-status .active-power {
+        font-weight: bold;
+        color: green;
+        background-color: #e6ffe6; /* Світло-зелений фон */
+    }
+
+    #power-status .inactive-power {
+        color: gray;
+        background-color: #f2f2f2; /* Світло-сірий фон */
+    }
+		
+		
         body {
             background-color: #f0f2f5;
             padding: 20px;
@@ -119,16 +161,23 @@
         <!-- Блок статусу -->
         <div class="block" id="status-block">
             <h2>Поточний стан</h2>
+<div class="status-item">
+    <strong>Стан живлення:</strong>
+    <span id="power-status">
+        <span id="main-power-status" class="active-power">Основне</span> / <span id="backup-power-status">Резервне</span>
+    </span>
+</div>
             <div class="status-grid">
                 <div class="status-item" id="datetime">
                     <strong>Дата та час</strong>
                     <div id="current-time">-</div>
                 </div>
-                <div class="status-item" id="temp-humidity">
-                    <strong>Температура і вологість</strong>
-                    <div id="current-temp">-°C</div>
-                    <div id="current-humidity">-%</div>
-                </div>
+				<div class="status-item" id="temp-humidity">
+						<strong>Показники датчика</strong>
+						<div id="current-temp">-°C</div>
+						<div id="current-humidity">-%</div>
+						<div id="current-pressure">- гПа</div>
+				</div>
                 <div class="status-item" id="light1-status">
                     <strong>Лінія 1</strong>
                     <div>-</div>
@@ -150,9 +199,23 @@
                     <div>-</div>
                 </div>
                 <div class="status-item" id="vent-status">
-                    <strong>Вентилятор провітрювання</strong>
+                    <strong>Зарезервовано</strong>
                     <div>-</div>
                 </div>
+				
+<div class="status-item" id="outside-fan-rpm">
+    <strong>Вентилятор з вулиці</strong>
+    <div id="current-outside-fan-rpm">- RPM</div>
+    <div id="current-outside-fan-pwm">PWM: -%</div>
+    <div id="current-outside-fan-state" class="fan-state">Стан: -</div>
+</div>
+<div class="status-item" id="vent-fan-rpm">
+    <strong>Вентилятор провітрювання</strong>
+    <div id="current-vent-fan-rpm">- RPM</div>
+    <div id="current-vent-fan-pwm">PWM: -%</div>
+    <div id="current-vent-fan-state" class="fan-state">Стан: -</div>
+</div>
+				
             </div>
         </div>
 
@@ -227,6 +290,16 @@
             </div>
             <div class="form-group">
                 <h3>Вентилятор провітрювання</h3>
+				
+				<div class="form-row">
+					<label>Швидкість під час роботи (%):</label>
+					<input type="number" id="vent-on-speed" min="0" max="100" step="1">
+				</div>
+				<div class="form-row">
+					<label>Швидкість під час паузи (%):</label>
+					<input type="number" id="vent-off-speed" min="0" max="100" step="1">
+				</div>
+				
                 <div class="form-row">
                     <label>Час роботи (хв):</label>
                     <input type="number" id="vent-on" min="1">
@@ -237,6 +310,12 @@
             </div>
         </div>
     </div>
+	
+	
+<form method="POST" action="/firmware_update" enctype="multipart/form-data"> <input type="file" name="update">
+    <input type="submit" value="Оновити прошивку">
+</form>
+
 
     <script>
         // Функції перевірки коректності введених даних
@@ -261,9 +340,10 @@
             fetch('/status')
                 .then(response => response.json())
                 .then(data => {
-                    document.getElementById('current-time').textContent = data.time;
-                    document.getElementById('current-temp').textContent = `${data.temperature.toFixed(1)}°C`;
-                    document.getElementById('current-humidity').textContent = `${data.humidity.toFixed(1)}%`;
+            document.getElementById('current-time').textContent = data.time;
+            document.getElementById('current-temp').textContent = `${data.temperature.toFixed(1)}°C`;
+            document.getElementById('current-humidity').textContent = `${data.humidity.toFixed(1)}%`;
+            document.getElementById('current-pressure').textContent = `${data.pressure.toFixed(1)} гПа`;
                     
                     updateStatusItem('light1-status', data.light1);
                     updateStatusItem('light2-status', data.light2);
@@ -271,9 +351,41 @@
                     updateStatusItem('heater-status', data.heater);
                     updateStatusItem('humidifier-status', data.humidifier);
                     updateStatusItem('vent-status', data.vent);
-                    
+                   
                     document.getElementById('fan-speed').value = data.fan_speed;
                     document.getElementById('fan-speed-value').textContent = data.fan_speed;
+					document.getElementById('current-outside-fan-rpm').textContent = `${data.outside_fan_rpm.toFixed(0)}`;
+					document.getElementById('current-vent-fan-rpm').textContent = `${data.vent_fan_rpm.toFixed(0)}`;
+					
+document.getElementById('current-outside-fan-rpm').textContent = `${data.outside_fan_rpm.toFixed(0)} RPM`;
+document.getElementById('current-outside-fan-pwm').textContent = `PWM: ${data.outside_fan_speed}%`;
+document.getElementById('current-vent-fan-rpm').textContent = `${data.vent_fan_rpm.toFixed(0)} RPM`;
+document.getElementById('current-vent-fan-pwm').textContent = `PWM: ${data.vent_fan_speed}%`;
+
+// Оновлення стану вентиляторів
+const outsideFanState = document.getElementById('current-outside-fan-state');
+const ventFanState = document.getElementById('current-vent-fan-state');
+
+if (data.outside_fan_speed > 0) {
+    outsideFanState.textContent = 'Стан: Активний';
+    outsideFanState.classList.add('fan-active');
+    outsideFanState.classList.remove('fan-inactive');
+} else {
+    outsideFanState.textContent = 'Стан: Неактивний';
+    outsideFanState.classList.add('fan-inactive');
+    outsideFanState.classList.remove('fan-active');
+}
+
+if (data.vent_fan_speed > 0) {
+    ventFanState.textContent = 'Стан: Активний';
+    ventFanState.classList.add('fan-active');
+    ventFanState.classList.remove('fan-inactive');
+} else {
+    ventFanState.textContent = 'Стан: Неактивний';
+    ventFanState.classList.add('fan-inactive');
+    ventFanState.classList.remove('fan-active');
+}
+					
                 })
                 .catch(error => console.error('Помилка оновлення статусу:', error));
         }
@@ -316,11 +428,16 @@
                     document.getElementById('humidity-max').value = data.humidity_max;
                     document.getElementById('humidity-critical').value = data.humidity_critical;
                     
-                    // Налаштування вентиляції
-                    document.getElementById('vent-on').value = data.vent_on_minutes;
-                    document.getElementById('vent-off').value = data.vent_off_minutes;
-                    document.getElementById('fan-speed').value = data.fan_speed;
-                    document.getElementById('fan-speed-value').textContent = data.fan_speed;
+                    // Налаштування вентиляції		
+					document.getElementById('vent-on').value = data.vent_on_minutes;
+					document.getElementById('vent-off').value = data.vent_off_minutes;
+					document.getElementById('vent-on-speed').value = data.vent_on_speed;
+					document.getElementById('vent-off-speed').value = data.vent_off_speed;
+					document.getElementById('fan-speed').value = data.fan_speed;
+					document.getElementById('fan-speed-value').textContent = data.fan_speed;
+
+					
+					
                 })
                 .catch(error => console.error('Помилка завантаження налаштувань:', error));
         }
@@ -389,24 +506,28 @@
             updateSettings(settings);
         }
 
-        function saveVentilationSettings() {
-            const ventOn = parseInt(document.getElementById('vent-on').value);
-            const ventOff = parseInt(document.getElementById('vent-off').value);
-            const fanSpeed = parseInt(document.getElementById('fan-speed').value);
-            
-            if (!validateVentilation(ventOn, ventOff)) {
-                alert('Будь ласка, перевірте правильність введення часу вентиляції');
-                return;
-            }
-            
-            const settings = {
-                vent_on_minutes: ventOn,
-                vent_off_minutes: ventOff,
-                fan_speed: fanSpeed
-            };
-            
-            updateSettings(settings);
-        }
+function saveVentilationSettings() {
+    const ventOn = parseInt(document.getElementById('vent-on').value);
+    const ventOff = parseInt(document.getElementById('vent-off').value);
+    const ventOnSpeed = parseInt(document.getElementById('vent-on-speed').value); // Додано
+    const ventOffSpeed = parseInt(document.getElementById('vent-off-speed').value); // Додано
+    const fanSpeed = parseInt(document.getElementById('fan-speed').value);
+
+    if (!validateVentilation(ventOn, ventOff)) {
+        alert('Будь ласка, перевірте правильність введення часу вентиляції');
+        return;
+    }
+
+    const settings = {
+        vent_on_minutes: ventOn,
+        vent_off_minutes: ventOff,
+        vent_on_speed: ventOnSpeed, // Додано
+        vent_off_speed: ventOffSpeed, // Додано
+        fan_speed: fanSpeed
+    };
+
+    updateSettings(settings);
+}
 
         // Функція оновлення налаштувань на сервері
         function updateSettings(settings) {
